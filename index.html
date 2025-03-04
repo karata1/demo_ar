@@ -120,8 +120,8 @@
 
                 // Обновляем позицию куба
                 box.setAttribute('gps-entity-place', {
-                    latitude: 51.145994,
-                    longitude: 71.471604
+                    latitude: 51.146079,
+                    longitude: 71.471389
                 });
 
                 // Добавляем обработчик события для отслеживания загрузки сцены
@@ -149,8 +149,8 @@
 
             // Функция для обновления информации
             function updatePosition(position) {
-                const targetLat = 51.145994;
-                const targetLon = 71.471604;
+                const targetLat = 51.146079;
+                const targetLon = 71.471389;
                 
                 const distance = calculateDistance(
                     position.coords.latitude,
@@ -351,11 +351,11 @@
         }
 
         #arrow {
-            width: 0;
-            height: 0;
-            border-left: 20px solid transparent;
-            border-right: 20px solid transparent;
-            border-bottom: 40px solid yellow;
+            width: 40px;
+            height: 40px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='yellow'%3E%3Cpath d='M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z'/%3E%3C/svg%3E");
+            background-size: contain;
+            background-repeat: no-repeat;
             transform-origin: center;
         }
 
@@ -406,7 +406,7 @@
             scale="15 15 15"
             position="0 0 0"
             animation="property: rotation; to: 0 360 0; dur: 4000; easing: linear; loop: true"
-            gps-entity-place="latitude: 51.145994; longitude: 71.471604">
+            gps-entity-place="latitude: 51.146079; longitude: 71.471389">
         </a-box>
     </a-scene>
 
@@ -418,8 +418,8 @@
         
         // Обновление компаса и расстояния
         function updateCompassAndDistance(position) {
-            const targetLat = 51.145994;
-            const targetLon = 71.471604;
+            const targetLat = 51.146079;
+            const targetLon = 71.471389;
             
             // Получаем направление на цель
             const bearing = calculateTargetBearing(

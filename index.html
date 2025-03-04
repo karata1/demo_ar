@@ -4,18 +4,108 @@
     <title>GPS WebAR</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <script src="https://aframe.io/releases/1.0.4/aframe.min.js"></script>
+    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar-threex-location-only.js"></script>
     <script>
         window.onload = () => {
-            let debugDiv = document.querySelector('#debug');
-            
-            // Проверяем поддержку геолокации
-            if (!navigator.geolocation) {
-                debugDiv.innerHTML = 'Геолокация не поддерживается вашим браузером';
-                return;
+            const loader = document.querySelector('.arjs-loader');
+            const loaderStatus = document.querySelector('#loader-status');
+            const loaderDetails = document.querySelector('#loader-details');
+            const debugDiv = document.querySelector('#debug');
+
+            // Функция для обновления статуса загрузки
+            function updateLoadingStatus(message, isError = false) {
+                loaderStatus.textContent = message;
+                if (isError) {
+                    loaderStatus.style.color = '#ff4444';
+                    loaderDetails.style.color = '#ff4444';
+                }
             }
+
+            // Проверка поддержки WebXR AR
+            async function checkARSupport() {
+                if ('xr' in navigator) {
+                    try {
+                        const isSupported = await navigator.xr.isSessionSupported('immersive-ar');
+                        if (isSupported) {
+                            loaderDetails.textContent += '\n✓ Поддержка ARCore/ARKit через WebXR';
+                            // Включаем WebXR режим
+                            document.querySelector('a-scene').setAttribute('webxr', 'optionalFeatures: hit-test, dom-overlay; overlayElement: #overlay;');
+                            return true;
+                        } else {
+                            loaderDetails.textContent += '\n⚠ WebXR AR не поддерживается';
+                            return false;
+                        }
+                    } catch (error) {
+                        loaderDetails.textContent += '\n⚠ Ошибка при проверке WebXR';
+                        return false;
+                    }
+                } else {
+                    loaderDetails.textContent += '\n⚠ WebXR не поддерживается';
+                    return false;
+                }
+            }
+
+            // Проверка поддержки необходимых функций
+            async function checkSupport() {
+                updateLoadingStatus('Проверка AR возможностей...');
+                const hasWebXR = await checkARSupport();
+
+                // Проверка поддержки камеры
+                try {
+                    updateLoadingStatus('Проверка доступа к камере...');
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    const hasCamera = devices.some(device => device.kind === 'videoinput');
+                    if (!hasCamera) {
+                        throw new Error('Камера не найдена');
+                    }
+                    loaderDetails.textContent += '\n✓ Камера доступна';
+                } catch (error) {
+                    updateLoadingStatus('Ошибка: Нет доступа к камере', true);
+                    loaderDetails.textContent += '\n⚠ Для работы приложения необходим доступ к камере';
+                    return false;
+                }
+
+                // Проверка поддержки геолокации
+                updateLoadingStatus('Проверка геолокации...');
+                if (!navigator.geolocation) {
+                    updateLoadingStatus('Ошибка: Геолокация не поддерживается', true);
+                    loaderDetails.textContent += '\n⚠ Ваш браузер не поддерживает геолокацию';
+                    return false;
+                }
+                loaderDetails.textContent += '\n✓ Геолокация поддерживается';
+
+                // Проверка разрешений
+                try {
+                    updateLoadingStatus('Запрос разрешений...');
+                    await navigator.mediaDevices.getUserMedia({ video: true });
+                    const position = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, {
+                            enableHighAccuracy: true,
+                            timeout: 5000
+                        });
+                    });
+                    
+                    loaderDetails.textContent += '\n✓ Разрешения получены';
+                    updateLoadingStatus(hasWebXR ? 'Запуск AR в режиме WebXR...' : 'Запуск AR в базовом режиме...');
+                    
+                    // Скрываем загрузчик через 2 секунды
+                    setTimeout(() => {
+                        loader.style.display = 'none';
+                        initAR(position);
+                    }, 2000);
+                    
+                    return true;
+                } catch (error) {
+                    updateLoadingStatus('Ошибка: Необходимые разрешения не получены', true);
+                    loaderDetails.textContent += '\n⚠ Пожалуйста, предоставьте доступ к камере и геолокации';
+                    return false;
+                }
+            }
+
+            // Запускаем проверку
+            checkSupport();
 
             // Функция для обновления информации
             function updatePosition(position) {
@@ -98,11 +188,27 @@
             position: absolute;
             top: 0;
             left: 0;
-            background-color: rgba(0, 0, 0, 0.8);
+            background-color: rgba(0, 0, 0, 0.9);
             z-index: 9999;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
+        }
+
+        #loader-status {
+            text-align: center;
+            font-size: 1.5em;
+            color: white;
+            margin-bottom: 20px;
+        }
+
+        #loader-details {
+            text-align: left;
+            font-size: 1em;
+            color: white;
+            font-family: monospace;
+            white-space: pre-line;
         }
 
         .arjs-loader div {
@@ -147,15 +253,21 @@
 </head>
 <body style="margin: 0; overflow: hidden;">
     <div class="arjs-loader">
-        <div>Загрузка, пожалуйста подождите...</div>
+        <div id="loader-status">Инициализация...</div>
+        <div id="loader-details"></div>
     </div>
 
     <div id="debug">Инициализация GPS...</div>
 
+    <div id="overlay" style="z-index: 999999;">
+        <!-- Здесь могут быть элементы управления для WebXR -->
+    </div>
+
     <a-scene
         vr-mode-ui="enabled: false"
         embedded
-        arjs='sourceType: webcam; videoTexture: true; debugUIEnabled: true;'>
+        arjs='sourceType: webcam; videoTexture: true; debugUIEnabled: true;'
+        renderer="antialias: true; logarithmicDepthBuffer: true;">
         
         <a-camera gps-camera="simulateLatitude: 51.145994; simulateLongitude: 71.471604;" rotation-reader></a-camera>
 

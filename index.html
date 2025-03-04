@@ -6,146 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <script src="https://aframe.io/releases/1.0.4/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/2.1.4/aframe/build/aframe-ar.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar-threex-location-only.js"></script>
     <script>
         window.onload = () => {
             const loader = document.querySelector('.arjs-loader');
-            const loaderStatus = document.querySelector('#loader-status');
-            const loaderDetails = document.querySelector('#loader-details');
             const debugDiv = document.querySelector('#debug');
 
-            // Функция для обновления статуса загрузки
-            function updateLoadingStatus(message, isError = false) {
-                loaderStatus.textContent = message;
-                if (isError) {
-                    loaderStatus.style.color = '#ff4444';
-                    loaderDetails.style.color = '#ff4444';
-                }
-            }
-
-            // Проверка поддержки WebXR AR
-            async function checkARSupport() {
-                if ('xr' in navigator) {
-                    try {
-                        const isSupported = await navigator.xr.isSessionSupported('immersive-ar');
-                        if (isSupported) {
-                            loaderDetails.textContent += '\n✓ Поддержка ARCore/ARKit через WebXR';
-                            // Включаем WebXR режим
-                            document.querySelector('a-scene').setAttribute('webxr', 'optionalFeatures: hit-test, dom-overlay; overlayElement: #overlay;');
-                            return true;
-                        } else {
-                            loaderDetails.textContent += '\n⚠ WebXR AR не поддерживается';
-                            return false;
-                        }
-                    } catch (error) {
-                        loaderDetails.textContent += '\n⚠ Ошибка при проверке WebXR';
-                        return false;
-                    }
-                } else {
-                    loaderDetails.textContent += '\n⚠ WebXR не поддерживается';
-                    return false;
-                }
-            }
-
-            // Проверка поддержки необходимых функций
-            async function checkSupport() {
-                updateLoadingStatus('Проверка AR возможностей...');
-                const hasWebXR = await checkARSupport();
-
-                // Проверка поддержки камеры
-                try {
-                    updateLoadingStatus('Проверка доступа к камере...');
-                    const devices = await navigator.mediaDevices.enumerateDevices();
-                    const hasCamera = devices.some(device => device.kind === 'videoinput');
-                    if (!hasCamera) {
-                        throw new Error('Камера не найдена');
-                    }
-                    loaderDetails.textContent += '\n✓ Камера доступна';
-                } catch (error) {
-                    updateLoadingStatus('Ошибка: Нет доступа к камере', true);
-                    loaderDetails.textContent += '\n⚠ Для работы приложения необходим доступ к камере';
-                    return false;
-                }
-
-                // Проверка поддержки геолокации
-                updateLoadingStatus('Проверка геолокации...');
-                if (!navigator.geolocation) {
-                    updateLoadingStatus('Ошибка: Геолокация не поддерживается', true);
-                    loaderDetails.textContent += '\n⚠ Ваш браузер не поддерживает геолокацию';
-                    return false;
-                }
-                loaderDetails.textContent += '\n✓ Геолокация поддерживается';
-
-                // Проверка разрешений
-                try {
-                    updateLoadingStatus('Запрос разрешений...');
-                    await navigator.mediaDevices.getUserMedia({ video: true });
-                    const position = await new Promise((resolve, reject) => {
-                        navigator.geolocation.getCurrentPosition(resolve, reject, {
-                            enableHighAccuracy: true,
-                            timeout: 5000
-                        });
-                    });
-                    
-                    loaderDetails.textContent += '\n✓ Разрешения получены';
-                    updateLoadingStatus(hasWebXR ? 'Запуск AR в режиме WebXR...' : 'Запуск AR в базовом режиме...');
-                    
-                    // Скрываем загрузчик через 2 секунды
-                    setTimeout(() => {
-                        loader.style.display = 'none';
-                        initAR(position);
-                    }, 2000);
-                    
-                    return true;
-                } catch (error) {
-                    updateLoadingStatus('Ошибка: Необходимые разрешения не получены', true);
-                    loaderDetails.textContent += '\n⚠ Пожалуйста, предоставьте доступ к камере и геолокации';
-                    return false;
-                }
-            }
-
-            // Функция инициализации AR
-            function initAR(position) {
-                // Получаем элементы сцены
-                const scene = document.querySelector('a-scene');
-                const camera = document.querySelector('[gps-camera]');
-                const target = document.querySelector('#target');
-                const box = document.querySelector('a-box');
-
-                // Устанавливаем актуальные координаты для камеры
-                camera.setAttribute('gps-camera', {
-                    simulateLatitude: position.coords.latitude,
-                    simulateLongitude: position.coords.longitude
-                });
-
-                // Обновляем позицию куба
-                box.setAttribute('gps-entity-place', {
-                    latitude: 51.146079,
-                    longitude: 71.471389
-                });
-
-                // Добавляем обработчик события для отслеживания загрузки сцены
-                scene.addEventListener('loaded', () => {
-                    updateLoadingStatus('AR сцена загружена');
-                });
-
-                // Добавляем обработчик для отслеживания позиционирования куба
-                box.addEventListener('gps-entity-place-added', () => {
-                    console.log('Куб добавлен на сцену');
-                });
-
-                // Добавляем анимацию вращения для куба
-                box.setAttribute('animation', {
-                    property: 'rotation',
-                    dur: 4000,
-                    to: '0 360 0',
-                    loop: true,
-                    easing: 'linear'
-                });
-            }
-
-            // Запускаем проверку
-            checkSupport();
+            // Упрощенная инициализация
+            setTimeout(() => {
+                loader.style.display = 'none';
+            }, 1000);
 
             // Функция для обновления информации
             function updatePosition(position) {
@@ -168,41 +37,23 @@
 
                 debugDiv.innerHTML = `
                     <div class="info-section">
-                        <h3>Статус системы:</h3>
-                        <p>✓ GPS активен</p>
-                        <p>✓ Точность: ±${position.coords.accuracy.toFixed(2)}м</p>
-                        <p>✓ Высота: ${position.coords.altitude ? position.coords.altitude.toFixed(1) + 'м' : 'н/д'}</p>
-                    </div>
-                    <div class="info-section">
-                        <h3>Ваше местоположение:</h3>
-                        <p>Широта: ${position.coords.latitude.toFixed(6)}</p>
-                        <p>Долгота: ${position.coords.longitude.toFixed(6)}</p>
-                    </div>
-                    <div class="info-section">
-                        <h3>Информация о цели:</h3>
-                        <p>Расстояние: ${distance.toFixed(1)}м</p>
-                        <p>Направление: ${getDirection(bearing)}</p>
-                        <p>Азимут: ${bearing.toFixed(1)}°</p>
-                    </div>
-                    <div class="info-section">
-                        <h3>Координаты цели:</h3>
-                        <p>Широта: ${targetLat}</p>
-                        <p>Долгота: ${targetLon}</p>
+                        <p>GPS: ±${position.coords.accuracy.toFixed(0)}м</p>
+                        <p>Расст: ${distance.toFixed(0)}м ${getDirection(bearing)}</p>
+                        <p>Коорд: ${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}</p>
                     </div>
                 `;
 
-                // Обновляем компас и индикатор расстояния
+                // Обновляем компас и расстояние
                 updateCompassAndDistance(position);
             }
 
-            // Получение текстового направления
+            // Остальные функции без изменений
             function getDirection(bearing) {
                 const directions = ['С', 'СВ', 'В', 'ЮВ', 'Ю', 'ЮЗ', 'З', 'СЗ'];
                 const index = Math.round(((bearing + 360) % 360) / 45) % 8;
                 return directions[index];
             }
 
-            // Функция расчета расстояния
             function calculateDistance(lat1, lon1, lat2, lon2) {
                 const R = 6371e3;
                 const φ1 = lat1 * Math.PI/180;
@@ -218,7 +69,6 @@
                 return R * c;
             }
 
-            // Функция для вычисления направления к цели
             function calculateTargetBearing(lat1, lon1, lat2, lon2) {
                 const φ1 = lat1 * Math.PI/180;
                 const φ2 = lat2 * Math.PI/180;
@@ -231,27 +81,8 @@
                 return Math.atan2(y, x) * 180/Math.PI;
             }
 
-            // Обработка ошибок геолокации
-            function handleError(error) {
-                let errorMessage = 'Ошибка GPS: ';
-                switch(error.code) {
-                    case error.PERMISSION_DENIED:
-                        errorMessage += 'Доступ к геолокации запрещен';
-                        break;
-                    case error.POSITION_UNAVAILABLE:
-                        errorMessage += 'Информация о местоположении недоступна';
-                        break;
-                    case error.TIMEOUT:
-                        errorMessage += 'Таймаут запроса геолокации';
-                        break;
-                    default:
-                        errorMessage += 'Неизвестная ошибка';
-                }
-                debugDiv.innerHTML = errorMessage;
-            }
-
             // Запускаем отслеживание позиции
-            navigator.geolocation.watchPosition(updatePosition, handleError, {
+            navigator.geolocation.watchPosition(updatePosition, null, {
                 enableHighAccuracy: true,
                 maximumAge: 0,
                 timeout: 5000
@@ -265,72 +96,33 @@
             position: absolute;
             top: 0;
             left: 0;
-            background-color: rgba(0, 0, 0, 0.9);
+            background-color: rgba(0, 0, 0, 0.8);
             z-index: 9999;
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
-        }
-
-        #loader-status {
-            text-align: center;
-            font-size: 1.5em;
             color: white;
-            margin-bottom: 20px;
-        }
-
-        #loader-details {
-            text-align: left;
-            font-size: 1em;
-            color: white;
-            font-family: monospace;
-            white-space: pre-line;
-        }
-
-        .arjs-loader div {
-            text-align: center;
             font-size: 1.25em;
-            color: white;
         }
 
         #debug {
             position: fixed;
-            top: 20px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.85);
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
             color: white;
-            padding: 20px;
-            border-radius: 15px;
+            padding: 10px;
+            border-radius: 10px;
             font-family: monospace;
             z-index: 999999;
-            width: 320px;
+            width: auto;
             pointer-events: none;
-            box-shadow: 0 0 10px rgba(0,0,0,0.5);
-        }
-
-        .info-section {
-            margin-bottom: 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-            padding-bottom: 15px;
-        }
-
-        .info-section:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-        }
-
-        .info-section h3 {
-            color: #3498db;
-            margin: 0 0 10px 0;
-            font-size: 16px;
-            text-transform: uppercase;
+            font-size: 14px;
         }
 
         .info-section p {
-            margin: 8px 0;
-            font-size: 14px;
-            line-height: 1.4;
+            margin: 5px 0;
+            white-space: nowrap;
         }
 
         #compass {
@@ -338,8 +130,8 @@
             bottom: 40px;
             left: 50%;
             transform: translateX(-50%);
-            width: 100px;
-            height: 100px;
+            width: 80px;
+            height: 80px;
             background: rgba(0, 0, 0, 0.7);
             border-radius: 50%;
             z-index: 999999;
@@ -351,8 +143,8 @@
         }
 
         #arrow {
-            width: 40px;
-            height: 40px;
+            width: 30px;
+            height: 30px;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='yellow'%3E%3Cpath d='M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z'/%3E%3C/svg%3E");
             background-size: contain;
             background-repeat: no-repeat;
@@ -361,15 +153,15 @@
 
         #distance-indicator {
             position: fixed;
-            bottom: 150px;
+            bottom: 130px;
             left: 50%;
             transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.7);
             color: white;
-            padding: 10px 20px;
-            border-radius: 20px;
+            padding: 5px 15px;
+            border-radius: 15px;
             font-family: monospace;
-            font-size: 18px;
+            font-size: 16px;
             z-index: 999999;
             pointer-events: none;
             border: 1px solid yellow;
@@ -377,18 +169,10 @@
     </style>
 </head>
 <body style="margin: 0; overflow: hidden;">
-    <div class="arjs-loader">
-        <div id="loader-status">Инициализация...</div>
-        <div id="loader-details"></div>
-    </div>
+    <div class="arjs-loader">Загрузка...</div>
 
-    <div id="debug">Инициализация GPS...</div>
+    <div id="debug">Определение местоположения...</div>
 
-    <div id="overlay" style="z-index: 999999;">
-        <!-- Здесь могут быть элементы управления для WebXR -->
-    </div>
-
-    <!-- Добавляем компас -->
     <div id="compass">
         <div id="arrow"></div>
     </div>
@@ -411,17 +195,13 @@
     </a-scene>
 
     <script>
-        const box = document.querySelector('a-box');
-        const camera = document.querySelector('[gps-camera]');
         const compass = document.querySelector('#arrow');
         const distanceIndicator = document.querySelector('#distance-indicator');
         
-        // Обновление компаса и расстояния
         function updateCompassAndDistance(position) {
             const targetLat = 51.146079;
             const targetLon = 71.471389;
             
-            // Получаем направление на цель
             const bearing = calculateTargetBearing(
                 position.coords.latitude,
                 position.coords.longitude,
@@ -429,18 +209,15 @@
                 targetLon
             );
             
-            // Получаем ориентацию устройства
             if (window.DeviceOrientationEvent) {
                 window.addEventListener('deviceorientation', (event) => {
                     if (event.alpha !== null) {
-                        // Вычисляем угол поворота стрелки
                         const rotation = bearing - event.alpha;
                         compass.style.transform = `rotate(${rotation}deg)`;
                     }
                 });
             }
 
-            // Обновляем индикатор расстояния
             const distance = calculateDistance(
                 position.coords.latitude,
                 position.coords.longitude,
@@ -448,9 +225,8 @@
                 targetLon
             );
             
-            distanceIndicator.textContent = `${distance.toFixed(1)}м`;
+            distanceIndicator.textContent = `${distance.toFixed(0)}м`;
             
-            // Меняем цвет в зависимости от расстояния
             if (distance < 10) {
                 distanceIndicator.style.color = '#00ff00';
             } else if (distance < 50) {

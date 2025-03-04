@@ -20,16 +20,19 @@
             },
             init: function() {
                 this.originCoords = { latitude: 51.145994, longitude: 71.471604 };
+                // Устанавливаем позицию на уровне земли (y = 0)
                 this.el.setAttribute('position', '0 0 0');
                 
-                // Устанавливаем фиксированную позицию
                 setTimeout(() => {
                     document.querySelector('.arjs-loader').style.display = 'none';
                 }, 3000);
-            },
-            update: function() {
-                // Предотвращаем обновление позиции
-                this.el.setAttribute('position', '0 0 0');
+
+                // Добавляем тень под кубом
+                const shadow = document.createElement('a-circle');
+                shadow.setAttribute('radius', '1');
+                shadow.setAttribute('rotation', '-90 0 0');
+                shadow.setAttribute('material', 'color: #000; opacity: 0.3');
+                this.el.appendChild(shadow);
             }
         });
 
@@ -37,26 +40,68 @@
             init: function() {
                 this.debugEl = document.querySelector('#debug');
                 this.target = { lat: 51.145994, lon: 71.471604 };
+                this.lastUpdate = 0;
+                this.updateInterval = 1000; // Обновление каждую секунду
 
                 if ("geolocation" in navigator) {
                     navigator.geolocation.watchPosition((position) => {
-                        const distance = this.calculateDistance(
-                            position.coords.latitude,
-                            position.coords.longitude,
-                            this.target.lat,
-                            this.target.lon
-                        );
-
-                        if (this.debugEl) {
-                            this.debugEl.innerHTML = `
-                                Расстояние до цели: ${distance.toFixed(2)} метров<br>
-                                Ваши координаты: ${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}<br>
-                                Цель: ${this.target.lat}, ${this.target.lon}
-                            `;
+                        const now = Date.now();
+                        if (now - this.lastUpdate > this.updateInterval) {
+                            this.updateInfo(position);
+                            this.lastUpdate = now;
                         }
+                    }, 
+                    (error) => {
+                        this.debugEl.innerHTML = `Ошибка GPS: ${error.message}`;
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        maximumAge: 0,
+                        timeout: 27000
                     });
                 }
             },
+
+            updateInfo: function(position) {
+                const distance = this.calculateDistance(
+                    position.coords.latitude,
+                    position.coords.longitude,
+                    this.target.lat,
+                    this.target.lon
+                );
+
+                const bearing = this.calculateBearing(
+                    position.coords.latitude,
+                    position.coords.longitude,
+                    this.target.lat,
+                    this.target.lon
+                );
+
+                const direction = this.getDirection(bearing);
+
+                if (this.debugEl) {
+                    this.debugEl.innerHTML = `
+                        <div class="info-section">
+                            <h3>Информация о цели:</h3>
+                            <p>Расстояние: ${distance.toFixed(2)} метров</p>
+                            <p>Направление: ${direction} (${bearing.toFixed(2)}°)</p>
+                            <p>Точность GPS: ±${position.coords.accuracy.toFixed(1)} метров</p>
+                        </div>
+                        <div class="info-section">
+                            <h3>Ваши координаты:</h3>
+                            <p>Широта: ${position.coords.latitude.toFixed(6)}</p>
+                            <p>Долгота: ${position.coords.longitude.toFixed(6)}</p>
+                            <p>Высота: ${position.coords.altitude ? position.coords.altitude.toFixed(1) + ' м' : 'недоступно'}</p>
+                        </div>
+                        <div class="info-section">
+                            <h3>Координаты цели:</h3>
+                            <p>Широта: ${this.target.lat}</p>
+                            <p>Долгота: ${this.target.lon}</p>
+                        </div>
+                    `;
+                }
+            },
+
             calculateDistance: function(lat1, lon1, lat2, lon2) {
                 const R = 6371e3;
                 const φ1 = lat1 * Math.PI/180;
@@ -70,6 +115,25 @@
                 const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
                 return R * c;
+            },
+
+            calculateBearing: function(lat1, lon1, lat2, lon2) {
+                const φ1 = lat1 * Math.PI/180;
+                const φ2 = lat2 * Math.PI/180;
+                const λ1 = lon1 * Math.PI/180;
+                const λ2 = lon2 * Math.PI/180;
+
+                const y = Math.sin(λ2-λ1) * Math.cos(φ2);
+                const x = Math.cos(φ1) * Math.sin(φ2) -
+                        Math.sin(φ1) * Math.cos(φ2) * Math.cos(λ2-λ1);
+                const θ = Math.atan2(y, x);
+                
+                return (θ*180/Math.PI + 360) % 360;
+            },
+
+            getDirection: function(bearing) {
+                const directions = ['С', 'СВ', 'В', 'ЮВ', 'Ю', 'ЮЗ', 'З', 'СЗ'];
+                return directions[Math.round(bearing / 45) % 8];
             }
         });
     </script>
@@ -116,11 +180,35 @@
             left: 20px;
             color: white;
             z-index: 999999;
-            background: rgba(0,0,0,0.7);
-            padding: 10px;
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
             font-family: monospace;
             font-size: 14px;
             width: 300px;
+            border-radius: 10px;
+        }
+
+        .info-section {
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 10px;
+        }
+
+        .info-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .info-section h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #3498db;
+        }
+
+        .info-section p {
+            margin: 5px 0;
+            font-size: 14px;
         }
     </style>
 </head>
@@ -144,6 +232,8 @@
             material="color: red"
             scale="20 20 20"
             position="0 0 0">
+            <!-- Добавляем подсветку снизу -->
+            <a-light type="point" intensity="0.5" color="#ff0000" position="0 -1 0"></a-light>
         </a-box>
     </a-scene>
 </body>

@@ -268,6 +268,7 @@
             font-family: monospace;
             z-index: 999999;
             width: 300px;
+            pointer-events: none;
         }
 
         .info-section {
@@ -306,25 +307,17 @@
     <a-scene
         vr-mode-ui="enabled: false"
         embedded
-        arjs='sourceType: webcam; videoTexture: true; debugUIEnabled: true; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960;'>
+        arjs='sourceType: webcam; videoTexture: true; debugUIEnabled: false; trackingMethod: best;'>
         
-        <a-camera gps-camera="minDistance: 1; maxDistance: 100000;" rotation-reader></a-camera>
+        <a-camera gps-camera="minDistance: 0;" rotation-reader></a-camera>
 
         <a-entity id="target">
             <a-box 
                 material="color: red; opacity: 0.9; transparent: true"
-                scale="5 5 5"
-                position="0 1 0"
-                look-at="[gps-camera]"
+                scale="10 10 10"
+                position="0 2 0"
                 animation="property: rotation; to: 0 360 0; dur: 4000; easing: linear; loop: true"
                 gps-entity-place="latitude: 51.145994; longitude: 71.471604">
-                <!-- Добавляем маркер направления -->
-                <a-triangle
-                    color="red"
-                    rotation="0 0 180"
-                    position="0 -3 0"
-                    scale="1 1 1">
-                </a-triangle>
                 <!-- Добавляем текст с расстоянием -->
                 <a-text 
                     value="ЦЕЛЬ"
@@ -337,20 +330,55 @@
             </a-box>
         </a-entity>
 
-        <!-- Добавляем окружающее освещение -->
-        <a-light type="ambient" intensity="0.5"></a-light>
+        <!-- Добавляем стрелку-указатель -->
+        <a-entity id="arrow" position="0 0 -2">
+            <a-triangle 
+                color="yellow"
+                scale="0.5 0.5 0.5"
+                rotation="0 0 0"
+                material="side: double; opacity: 0.8; transparent: true">
+            </a-triangle>
+            <a-text
+                value="↑"
+                position="0 0.5 0"
+                scale="2 2 2"
+                align="center"
+                color="yellow">
+            </a-text>
+        </a-entity>
     </a-scene>
 
     <script>
-        // Добавляем отладочную информацию
+        // Добавляем отладочную информацию и обновление стрелки
         const box = document.querySelector('a-box');
+        const arrow = document.querySelector('#arrow');
+        const camera = document.querySelector('[gps-camera]');
+        
         box.addEventListener('gps-entity-place-added', () => {
             console.log('Куб добавлен на сцену');
         });
-        
-        box.addEventListener('gps-entity-place-update-positon', (event) => {
-            console.log('Позиция куба обновлена:', event.detail.position);
-        });
+
+        // Функция для обновления направления стрелки
+        function updateArrowDirection() {
+            if (camera && box) {
+                const boxRotation = box.getAttribute('rotation');
+                const cameraRotation = camera.getAttribute('rotation');
+                
+                if (boxRotation && cameraRotation) {
+                    // Вычисляем угол между камерой и кубом
+                    const angle = Math.atan2(
+                        box.object3D.position.x - camera.object3D.position.x,
+                        box.object3D.position.z - camera.object3D.position.z
+                    ) * (180/Math.PI);
+                    
+                    // Поворачиваем стрелку
+                    arrow.setAttribute('rotation', `0 0 ${angle - cameraRotation.y}`);
+                }
+            }
+        }
+
+        // Обновляем направление стрелки каждые 100мс
+        setInterval(updateArrowDirection, 100);
 
         // Добавляем информацию о расстоянии на текст
         const targetText = document.querySelector('a-text');

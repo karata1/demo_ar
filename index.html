@@ -4,25 +4,45 @@
     <title>GPS WebAR</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar-threex-location-only.js"></script>
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <script>
-        AFRAME.registerComponent('location-based', {
-            init: function() {
-                this.loaded = false;
-                this.camera = document.querySelector('[gps-camera]');
-                this.el.addEventListener('loaded', () => {
-                    this.loaded = true;
+        window.onload = () => {
+            let places = staticLoadPlaces();
+            renderPlaces(places);
+        };
+
+        function staticLoadPlaces() {
+            return [
+                {
+                    name: 'Куб',
+                    location: {
+                        lat: 51.145994,
+                        lng: 71.471604,
+                    }
+                }
+            ];
+        }
+
+        function renderPlaces(places) {
+            let scene = document.querySelector('a-scene');
+
+            places.forEach((place) => {
+                let model = document.createElement('a-box');
+                model.setAttribute('gps-entity-place', `latitude: ${place.location.lat}; longitude: ${place.location.lng};`);
+                model.setAttribute('material', 'color: red');
+                model.setAttribute('scale', '20 20 20');
+                model.setAttribute('position', '0 0 0');
+                
+                // Добавляем обработчик события для фиксации позиции
+                model.addEventListener('loaded', () => {
+                    window.dispatchEvent(new CustomEvent('gps-entity-place-loaded'));
                 });
-            },
-            tick: function() {
-                if (!this.loaded) return;
-                const position = this.el.getAttribute('position');
-                // Фиксируем позицию относительно земли
-                position.y = 0;
-                this.el.setAttribute('position', position);
-            }
-        });
+
+                scene.appendChild(model);
+            });
+        }
     </script>
     <style>
         .arjs-loader {
@@ -43,6 +63,16 @@
             font-size: 1.25em;
             color: white;
         }
+
+        .debug {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            z-index: 999999;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+        }
     </style>
 </head>
 <body style="margin: 0; overflow: hidden;">
@@ -50,22 +80,27 @@
         <div>Загрузка, пожалуйста подождите...</div>
     </div>
 
+    <div class="debug" id="debug"></div>
+
     <a-scene
         vr-mode-ui="enabled: false"
-        arjs='sourceType: webcam; debugUIEnabled: false; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960;'
-        renderer='antialias: true; alpha: true'>
+        embedded
+        arjs='sourceType: webcam; debugUIEnabled: true; sourceWidth:1280; sourceHeight:960; displayWidth: 1280; displayHeight: 960;'>
         
-        <a-camera gps-camera="minDistance: 1; maxDistance: 100000" rotation-reader></a-camera>
-
-        <a-box 
-            location-based
-            material="color: red"
-            scale="20 20 20"
-            gps-entity-place="latitude: 51.145994; longitude: 71.471604"
-            position="0 0 0"
-            rotation="0 0 0"
-            look-at="[gps-camera]">
-        </a-box>
+        <a-camera 
+            gps-camera="minDistance: 1; maxDistance: 100000;" 
+            rotation-reader
+            arjs-look-controls="smoothingFactor: 0.1"
+            gps-camera-debug>
+        </a-camera>
     </a-scene>
+
+    <script>
+        // Добавляем отладочную информацию
+        const debugDiv = document.getElementById('debug');
+        window.addEventListener('gps-camera-update-position', e => {
+            debugDiv.textContent = `Текущие координаты: lat ${e.detail.position.latitude.toFixed(6)}, lon ${e.detail.position.longitude.toFixed(6)}`;
+        });
+    </script>
 </body>
 </html> 

@@ -4,91 +4,61 @@
     <title>GPS WebAR</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <script src='https://aframe.io/releases/0.9.2/aframe.min.js'></script>
-    <script src='https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js'></script>
+    <script src="https://aframe.io/releases/0.9.2/aframe.min.js"></script>
+    <script src="https://raw.githack.com/jeromeetienne/AR.js/2.1.4/aframe/build/aframe-ar.js"></script>
     <script>
-        window.onload = () => {
-            const loader = document.querySelector('.arjs-loader');
-            const status = document.querySelector('#loading-status');
-            
-            // Проверка поддержки WebXR
-            if (!navigator.xr) {
-                status.innerHTML = 'Ваш браузер не поддерживает WebXR/AR';
-                return;
-            }
-
-            // Проверка доступа к камере
-            status.innerHTML = 'Запрашиваем доступ к камере...';
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then(() => {
-                    status.innerHTML = 'Камера готова, запрашиваем GPS...';
-                    // Проверка GPS
-                    if ("geolocation" in navigator) {
-                        navigator.geolocation.getCurrentPosition(
-                            (position) => {
-                                status.innerHTML = 'GPS готов, инициализация AR...';
-                            },
-                            (error) => {
-                                status.innerHTML = 'Ошибка получения GPS: ' + error.message;
-                            }
-                        );
-                    } else {
-                        status.innerHTML = 'GPS не поддерживается';
-                    }
-                })
-                .catch(error => {
-                    status.innerHTML = 'Ошибка доступа к камере: ' + error.message;
-                });
-        };
-
-        AFRAME.registerComponent('gps-fixed-position', {
+        AFRAME.registerComponent('gps-fixed-entity-place', {
+            schema: {
+                latitude: {
+                    type: 'number',
+                    default: 0
+                },
+                longitude: {
+                    type: 'number',
+                    default: 0
+                }
+            },
             init: function() {
-                this.originalPosition = this.el.getAttribute('position');
-                this.fixedWorldPosition = null;
+                this.originCoords = { latitude: 51.145994, longitude: 71.471604 };
+                this.el.setAttribute('position', '0 0 0');
                 
-                this.el.addEventListener('gps-entity-place-update-position', (event) => {
-                    if (!this.fixedWorldPosition) {
-                        this.fixedWorldPosition = event.detail.position;
-                        console.log('Position fixed at:', this.fixedWorldPosition);
-                        // Скрываем загрузчик когда позиция зафиксирована
-                        document.querySelector('.arjs-loader').style.display = 'none';
-                    } else {
-                        // Восстанавливаем фиксированную позицию
-                        this.el.setAttribute('position', this.fixedWorldPosition);
-                    }
-                });
+                // Устанавливаем фиксированную позицию
+                setTimeout(() => {
+                    document.querySelector('.arjs-loader').style.display = 'none';
+                }, 3000);
+            },
+            update: function() {
+                // Предотвращаем обновление позиции
+                this.el.setAttribute('position', '0 0 0');
             }
         });
 
         AFRAME.registerComponent('distance-check', {
             init: function() {
-                this.camera = document.querySelector('[gps-camera]');
-                this.target = { lat: 51.145994, lon: 71.471604 };
                 this.debugEl = document.querySelector('#debug');
-            },
-            tick: function() {
-                if (!this.camera) return;
-                
-                const position = this.camera.components['gps-camera'].currentCoords;
-                if (!position) return;
+                this.target = { lat: 51.145994, lon: 71.471604 };
 
-                const distance = this.calculateDistance(
-                    position.latitude,
-                    position.longitude,
-                    this.target.lat,
-                    this.target.lon
-                );
+                if ("geolocation" in navigator) {
+                    navigator.geolocation.watchPosition((position) => {
+                        const distance = this.calculateDistance(
+                            position.coords.latitude,
+                            position.coords.longitude,
+                            this.target.lat,
+                            this.target.lon
+                        );
 
-                if (this.debugEl) {
-                    this.debugEl.innerHTML = `
-                        Расстояние до цели: ${distance.toFixed(2)} метров<br>
-                        Ваши координаты: ${position.latitude.toFixed(6)}, ${position.longitude.toFixed(6)}<br>
-                        Цель: ${this.target.lat}, ${this.target.lon}
-                    `;
+                        if (this.debugEl) {
+                            this.debugEl.innerHTML = `
+                                Расстояние до цели: ${distance.toFixed(2)} метров<br>
+                                Ваши координаты: ${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}<br>
+                                Цель: ${this.target.lat}, ${this.target.lon}
+                            `;
+                        }
+                    });
                 }
             },
             calculateDistance: function(lat1, lon1, lat2, lon2) {
-                const R = 6371e3; // радиус Земли в метрах
+                const R = 6371e3;
                 const φ1 = lat1 * Math.PI/180;
                 const φ2 = lat2 * Math.PI/180;
                 const Δφ = (lat2-lat1) * Math.PI/180;
@@ -157,25 +127,20 @@
 <body style="margin: 0; overflow: hidden;">
     <div class="arjs-loader">
         <div class="loading-icon"></div>
-        <div id="loading-status">Инициализация...</div>
+        <div id="loading-status">Загрузка AR...</div>
     </div>
 
     <div class="debug" id="debug"></div>
 
     <a-scene
         vr-mode-ui="enabled: false"
-        arjs='sourceType: webcam; videoTexture: true; debugUIEnabled: false;'
-        renderer='antialias: true; alpha: true'>
+        embedded
+        arjs='sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;'>
         
-        <a-camera 
-            gps-camera="simulateLatitude: 51.145994; simulateLongitude: 71.471604;"
-            rotation-reader
-            distance-check>
-        </a-camera>
+        <a-camera gps-camera rotation-reader></a-camera>
 
         <a-box 
-            gps-entity-place="latitude: 51.145994; longitude: 71.471604;"
-            gps-fixed-position
+            gps-fixed-entity-place="latitude: 51.145994; longitude: 71.471604"
             material="color: red"
             scale="20 20 20"
             position="0 0 0">

@@ -104,6 +104,46 @@
                 }
             }
 
+            // Функция инициализации AR
+            function initAR(position) {
+                // Получаем элементы сцены
+                const scene = document.querySelector('a-scene');
+                const camera = document.querySelector('[gps-camera]');
+                const target = document.querySelector('#target');
+                const box = document.querySelector('a-box');
+
+                // Устанавливаем актуальные координаты для камеры
+                camera.setAttribute('gps-camera', {
+                    simulateLatitude: position.coords.latitude,
+                    simulateLongitude: position.coords.longitude
+                });
+
+                // Обновляем позицию куба
+                box.setAttribute('gps-entity-place', {
+                    latitude: 51.145994,
+                    longitude: 71.471604
+                });
+
+                // Добавляем обработчик события для отслеживания загрузки сцены
+                scene.addEventListener('loaded', () => {
+                    updateLoadingStatus('AR сцена загружена');
+                });
+
+                // Добавляем обработчик для отслеживания позиционирования куба
+                box.addEventListener('gps-entity-place-added', () => {
+                    console.log('Куб размещен на сцене');
+                });
+
+                // Добавляем анимацию вращения для куба
+                box.setAttribute('animation', {
+                    property: 'rotation',
+                    dur: 4000,
+                    to: '0 360 0',
+                    loop: true,
+                    easing: 'linear'
+                });
+            }
+
             // Запускаем проверку
             checkSupport();
 
@@ -273,7 +313,7 @@
 
         <a-entity id="target">
             <a-box 
-                material="color: red"
+                material="color: red; metalness: 0.8; roughness: 0.2"
                 scale="20 20 20"
                 position="0 0 0"
                 gps-entity-place="latitude: 51.145994; longitude: 71.471604;">
@@ -284,8 +324,21 @@
                     position="0 -1 0"
                     material="color: #000; opacity: 0.5">
                 </a-circle>
+                <!-- Добавляем свечение -->
+                <a-light type="point" intensity="2" color="red" position="0 0 0"></a-light>
+                <!-- Добавляем текст с расстоянием -->
+                <a-text 
+                    value="Цель"
+                    position="0 1.5 0"
+                    scale="10 10 10"
+                    align="center"
+                    color="white">
+                </a-text>
             </a-box>
         </a-entity>
+
+        <!-- Добавляем окружающее освещение -->
+        <a-light type="ambient" intensity="0.5"></a-light>
     </a-scene>
 </body>
 </html> 

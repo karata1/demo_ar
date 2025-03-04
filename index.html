@@ -131,7 +131,7 @@
 
                 // Добавляем обработчик для отслеживания позиционирования куба
                 box.addEventListener('gps-entity-place-added', () => {
-                    console.log('Куб размещен на сцене');
+                    console.log('Куб добавлен на сцену');
                 });
 
                 // Добавляем анимацию вращения для куба
@@ -306,33 +306,33 @@
     <a-scene
         vr-mode-ui="enabled: false"
         embedded
-        arjs='sourceType: webcam; videoTexture: true; debugUIEnabled: true;'
-        renderer="antialias: true; logarithmicDepthBuffer: true;">
+        arjs='sourceType: webcam; videoTexture: true; debugUIEnabled: true; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960;'>
         
-        <a-camera gps-camera="simulateLatitude: 51.145994; simulateLongitude: 71.471604;" rotation-reader></a-camera>
+        <a-camera gps-camera="minDistance: 1; maxDistance: 100000;" rotation-reader></a-camera>
 
         <a-entity id="target">
             <a-box 
-                material="color: red; metalness: 0.8; roughness: 0.2"
-                scale="20 20 20"
-                position="0 0 0"
-                gps-entity-place="latitude: 51.145994; longitude: 71.471604;">
-                <!-- Добавляем тень -->
-                <a-circle 
-                    radius="1.5"
-                    rotation="-90 0 0"
-                    position="0 -1 0"
-                    material="color: #000; opacity: 0.5">
-                </a-circle>
-                <!-- Добавляем свечение -->
-                <a-light type="point" intensity="2" color="red" position="0 0 0"></a-light>
+                material="color: red; opacity: 0.9; transparent: true"
+                scale="5 5 5"
+                position="0 1 0"
+                look-at="[gps-camera]"
+                animation="property: rotation; to: 0 360 0; dur: 4000; easing: linear; loop: true"
+                gps-entity-place="latitude: 51.145994; longitude: 71.471604">
+                <!-- Добавляем маркер направления -->
+                <a-triangle
+                    color="red"
+                    rotation="0 0 180"
+                    position="0 -3 0"
+                    scale="1 1 1">
+                </a-triangle>
                 <!-- Добавляем текст с расстоянием -->
                 <a-text 
-                    value="Цель"
-                    position="0 1.5 0"
-                    scale="10 10 10"
+                    value="ЦЕЛЬ"
+                    position="0 2 0"
+                    scale="5 5 5"
                     align="center"
-                    color="white">
+                    color="white"
+                    look-at="[gps-camera]">
                 </a-text>
             </a-box>
         </a-entity>
@@ -340,5 +340,26 @@
         <!-- Добавляем окружающее освещение -->
         <a-light type="ambient" intensity="0.5"></a-light>
     </a-scene>
+
+    <script>
+        // Добавляем отладочную информацию
+        const box = document.querySelector('a-box');
+        box.addEventListener('gps-entity-place-added', () => {
+            console.log('Куб добавлен на сцену');
+        });
+        
+        box.addEventListener('gps-entity-place-update-positon', (event) => {
+            console.log('Позиция куба обновлена:', event.detail.position);
+        });
+
+        // Добавляем информацию о расстоянии на текст
+        const targetText = document.querySelector('a-text');
+        setInterval(() => {
+            const distance = document.querySelector('[gps-entity-place]').getAttribute('distance');
+            if (distance) {
+                targetText.setAttribute('value', `ЦЕЛЬ\n${distance.toFixed(2)}м`);
+            }
+        }, 1000);
+    </script>
 </body>
 </html> 

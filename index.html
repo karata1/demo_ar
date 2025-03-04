@@ -290,6 +290,48 @@
         .info-section p {
             margin: 5px 0;
         }
+
+        #compass {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 100px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 50%;
+            z-index: 999999;
+            pointer-events: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 2px solid yellow;
+        }
+
+        #arrow {
+            width: 0;
+            height: 0;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-bottom: 40px solid yellow;
+            transform-origin: center;
+        }
+
+        #distance-indicator {
+            position: fixed;
+            bottom: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-family: monospace;
+            font-size: 18px;
+            z-index: 999999;
+            pointer-events: none;
+            border: 1px solid yellow;
+        }
     </style>
 </head>
 <body style="margin: 0; overflow: hidden;">
@@ -304,6 +346,12 @@
         <!-- Здесь могут быть элементы управления для WebXR -->
     </div>
 
+    <!-- Добавляем компас -->
+    <div id="compass">
+        <div id="arrow"></div>
+    </div>
+    <div id="distance-indicator">Поиск цели...</div>
+
     <a-scene
         vr-mode-ui="enabled: false"
         embedded
@@ -314,11 +362,10 @@
         <a-entity id="target">
             <a-box 
                 material="color: red; opacity: 0.9; transparent: true"
-                scale="10 10 10"
+                scale="15 15 15"
                 position="0 2 0"
                 animation="property: rotation; to: 0 360 0; dur: 4000; easing: linear; loop: true"
                 gps-entity-place="latitude: 51.145994; longitude: 71.471604">
-                <!-- Добавляем текст с расстоянием -->
                 <a-text 
                     value="ЦЕЛЬ"
                     position="0 2 0"
@@ -329,65 +376,77 @@
                 </a-text>
             </a-box>
         </a-entity>
-
-        <!-- Добавляем стрелку-указатель -->
-        <a-entity id="arrow" position="0 0 -2">
-            <a-triangle 
-                color="yellow"
-                scale="0.5 0.5 0.5"
-                rotation="0 0 0"
-                material="side: double; opacity: 0.8; transparent: true">
-            </a-triangle>
-            <a-text
-                value="↑"
-                position="0 0.5 0"
-                scale="2 2 2"
-                align="center"
-                color="yellow">
-            </a-text>
-        </a-entity>
     </a-scene>
 
     <script>
-        // Добавляем отладочную информацию и обновление стрелки
         const box = document.querySelector('a-box');
-        const arrow = document.querySelector('#arrow');
         const camera = document.querySelector('[gps-camera]');
+        const compass = document.querySelector('#arrow');
+        const distanceIndicator = document.querySelector('#distance-indicator');
         
-        box.addEventListener('gps-entity-place-added', () => {
-            console.log('Куб добавлен на сцену');
-        });
+        // Функция для вычисления направления к цели
+        function calculateTargetBearing(lat1, lon1, lat2, lon2) {
+            const φ1 = lat1 * Math.PI/180;
+            const φ2 = lat2 * Math.PI/180;
+            const Δλ = (lon2-lon1) * Math.PI/180;
+            
+            const y = Math.sin(Δλ) * Math.cos(φ2);
+            const x = Math.cos(φ1) * Math.sin(φ2) -
+                    Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+            
+            return Math.atan2(y, x) * 180/Math.PI;
+        }
 
-        // Функция для обновления направления стрелки
-        function updateArrowDirection() {
-            if (camera && box) {
-                const boxRotation = box.getAttribute('rotation');
-                const cameraRotation = camera.getAttribute('rotation');
-                
-                if (boxRotation && cameraRotation) {
-                    // Вычисляем угол между камерой и кубом
-                    const angle = Math.atan2(
-                        box.object3D.position.x - camera.object3D.position.x,
-                        box.object3D.position.z - camera.object3D.position.z
-                    ) * (180/Math.PI);
-                    
-                    // Поворачиваем стрелку
-                    arrow.setAttribute('rotation', `0 0 ${angle - cameraRotation.y}`);
-                }
+        // Обновление компаса и расстояния
+        function updateCompass(position) {
+            const targetLat = 51.145994;
+            const targetLon = 71.471604;
+            
+            // Получаем направление на цель
+            const bearing = calculateTargetBearing(
+                position.coords.latitude,
+                position.coords.longitude,
+                targetLat,
+                targetLon
+            );
+            
+            // Получаем ориентацию устройства
+            if (window.DeviceOrientationEvent) {
+                window.addEventListener('deviceorientation', (event) => {
+                    if (event.alpha !== null) {
+                        // Вычисляем угол поворота стрелки
+                        const rotation = bearing - event.alpha;
+                        compass.style.transform = `rotate(${rotation}deg)`;
+                    }
+                });
+            }
+
+            // Обновляем индикатор расстояния
+            const distance = calculateDistance(
+                position.coords.latitude,
+                position.coords.longitude,
+                targetLat,
+                targetLon
+            );
+            
+            distanceIndicator.textContent = `${distance.toFixed(1)}м`;
+            
+            // Меняем цвет в зависимости от расстояния
+            if (distance < 10) {
+                distanceIndicator.style.color = '#00ff00';
+            } else if (distance < 50) {
+                distanceIndicator.style.color = '#ffff00';
+            } else {
+                distanceIndicator.style.color = '#ff0000';
             }
         }
 
-        // Обновляем направление стрелки каждые 100мс
-        setInterval(updateArrowDirection, 100);
-
-        // Добавляем информацию о расстоянии на текст
-        const targetText = document.querySelector('a-text');
-        setInterval(() => {
-            const distance = document.querySelector('[gps-entity-place]').getAttribute('distance');
-            if (distance) {
-                targetText.setAttribute('value', `ЦЕЛЬ\n${distance.toFixed(2)}м`);
-            }
-        }, 1000);
+        // Обновляем позицию каждую секунду
+        navigator.geolocation.watchPosition(updateCompass, null, {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 5000
+        });
     </script>
 </body>
 </html> 

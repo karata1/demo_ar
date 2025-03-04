@@ -10,11 +10,55 @@
         window.onload = () => {
             const loader = document.querySelector('.arjs-loader');
             const debugDiv = document.querySelector('#debug');
+            const permissionBtn = document.querySelector('#request-permission');
+            let deviceOrientationGranted = false;
 
-            // Упрощенная инициализация
-            setTimeout(() => {
-                loader.style.display = 'none';
-            }, 1000);
+            // Проверяем, является ли устройство iOS
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+            if (isIOS) {
+                permissionBtn.style.display = 'block';
+                permissionBtn.addEventListener('click', async () => {
+                    try {
+                        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                            const permission = await DeviceOrientationEvent.requestPermission();
+                            if (permission === 'granted') {
+                                deviceOrientationGranted = true;
+                                permissionBtn.style.display = 'none';
+                                initializeAR();
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Ошибка при запросе разрешения:', error);
+                    }
+                });
+            } else {
+                permissionBtn.style.display = 'none';
+                deviceOrientationGranted = true;
+                initializeAR();
+            }
+
+            function initializeAR() {
+                // Скрываем загрузчик
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                }, 1000);
+
+                // Запускаем отслеживание позиции
+                navigator.geolocation.watchPosition(updatePosition, handleError, {
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: 5000
+                });
+            }
+
+            function handleError(error) {
+                debugDiv.innerHTML = `
+                    <div class="info-section error">
+                        <p>Ошибка GPS: ${error.message}</p>
+                    </div>
+                `;
+            }
 
             // Функция для обновления информации
             function updatePosition(position) {
@@ -43,7 +87,6 @@
                     </div>
                 `;
 
-                // Обновляем компас и расстояние
                 updateCompassAndDistance(position);
             }
 
@@ -81,12 +124,51 @@
                 return Math.atan2(y, x) * 180/Math.PI;
             }
 
-            // Запускаем отслеживание позиции
-            navigator.geolocation.watchPosition(updatePosition, null, {
-                enableHighAccuracy: true,
-                maximumAge: 0,
-                timeout: 5000
-            });
+            function updateCompassAndDistance(position) {
+                if (!deviceOrientationGranted) return;
+
+                const targetLat = 51.146079;
+                const targetLon = 71.471389;
+                
+                const bearing = calculateTargetBearing(
+                    position.coords.latitude,
+                    position.coords.longitude,
+                    targetLat,
+                    targetLon
+                );
+                
+                if (window.DeviceOrientationEvent) {
+                    window.addEventListener('deviceorientation', (event) => {
+                        if (event.alpha !== null) {
+                            let rotation;
+                            if (isIOS) {
+                                // Для iOS используем webkitCompassHeading
+                                rotation = event.webkitCompassHeading + bearing;
+                            } else {
+                                rotation = bearing - event.alpha;
+                            }
+                            compass.style.transform = `rotate(${rotation}deg)`;
+                        }
+                    }, true);
+                }
+
+                const distance = calculateDistance(
+                    position.coords.latitude,
+                    position.coords.longitude,
+                    targetLat,
+                    targetLon
+                );
+                
+                distanceIndicator.textContent = `${distance.toFixed(0)}м`;
+                
+                if (distance < 10) {
+                    distanceIndicator.style.color = '#00ff00';
+                } else if (distance < 50) {
+                    distanceIndicator.style.color = '#ffff00';
+                } else {
+                    distanceIndicator.style.color = '#ff0000';
+                }
+            }
         };
     </script>
     <style>
@@ -123,6 +205,10 @@
         .info-section p {
             margin: 5px 0;
             white-space: nowrap;
+        }
+
+        .info-section.error p {
+            color: #ff4444;
         }
 
         #compass {
@@ -166,11 +252,32 @@
             pointer-events: none;
             border: 1px solid yellow;
         }
+
+        #request-permission {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #3498db;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            z-index: 999999;
+            display: none;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        #request-permission:active {
+            background: #2980b9;
+        }
     </style>
 </head>
 <body style="margin: 0; overflow: hidden;">
     <div class="arjs-loader">Загрузка...</div>
-
+    <button id="request-permission">Разрешить доступ к датчикам</button>
     <div id="debug">Определение местоположения...</div>
 
     <div id="compass">
@@ -193,48 +300,5 @@
             gps-entity-place="latitude: 51.146079; longitude: 71.471389">
         </a-box>
     </a-scene>
-
-    <script>
-        const compass = document.querySelector('#arrow');
-        const distanceIndicator = document.querySelector('#distance-indicator');
-        
-        function updateCompassAndDistance(position) {
-            const targetLat = 51.146079;
-            const targetLon = 71.471389;
-            
-            const bearing = calculateTargetBearing(
-                position.coords.latitude,
-                position.coords.longitude,
-                targetLat,
-                targetLon
-            );
-            
-            if (window.DeviceOrientationEvent) {
-                window.addEventListener('deviceorientation', (event) => {
-                    if (event.alpha !== null) {
-                        const rotation = bearing - event.alpha;
-                        compass.style.transform = `rotate(${rotation}deg)`;
-                    }
-                });
-            }
-
-            const distance = calculateDistance(
-                position.coords.latitude,
-                position.coords.longitude,
-                targetLat,
-                targetLon
-            );
-            
-            distanceIndicator.textContent = `${distance.toFixed(0)}м`;
-            
-            if (distance < 10) {
-                distanceIndicator.style.color = '#00ff00';
-            } else if (distance < 50) {
-                distanceIndicator.style.color = '#ffff00';
-            } else {
-                distanceIndicator.style.color = '#ff0000';
-            }
-        }
-    </script>
 </body>
 </html> 
